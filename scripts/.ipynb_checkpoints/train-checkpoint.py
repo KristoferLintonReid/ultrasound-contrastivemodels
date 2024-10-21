@@ -2,13 +2,18 @@ import os
 import torch
 import pandas as pd
 import torch.optim as optim
-from torchvision import transforms  # Add this import for image transforms
+from torchvision import transforms
 from torch.utils.data import DataLoader
 from src.model import CLIPModel, RNAEncoder, ImageEncoder, ContrastiveLoss
 from src.dataset import RNACustomDataset
 from sklearn.model_selection import train_test_split
-import torch 
+import mlflow
+import mlflow.pytorch  # For logging PyTorch models
 import torch.nn as nn 
+
+# Set the MLflow tracking URI to point to the correct folder
+mlflow.set_tracking_uri("/home/kl2418/Documents/Barcroft/CLIPRNA/scripts/mlruns")
+
 
 # Step 1: Load RNA-Seq data
 df_rna = pd.read_csv('../RNA_counts_141024.csv', header=None, low_memory=False)
@@ -53,19 +58,11 @@ rna_data_filtered = pd.DataFrame(rna_data_filtered)
 # Step 5: Split into train and test sets
 rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2)
 
-# Continue with the rest of the training process...
-
-
-# Split into train and test (you can change the data paths as needed)
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2)
-
 # define transforms 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),  # Resize images to a consistent size
     transforms.ToTensor(),  # Convert to tensor
 ])
-
-
 
 # Create datasets with image_directory passed in
 train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=transform)
@@ -84,33 +81,20 @@ model = CLIPModel(rna_encoder, image_encoder).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
 
+# MLflow setup
+mlflow.set_experiment("RNA-Image CLIP Model")
+
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
-    for epoch in range(epochs):
-        # Training Phase
-        model.train()  # Set both encoders to training mode
-        total_train_loss = 0
-        for rna_batch, image_batch in train_loader:
-            rna_batch, image_batch = rna_batch.to(device), image_batch.to(device)
-            
-            # Forward pass through both encoders
-            rna_embeddings, image_embeddings = model(rna_batch, image_batch)
-            
-            # Compute contrastive loss
-            loss = criterion(rna_embeddings, image_embeddings)
-            total_train_loss += loss.item()
-            
-            # Backward pass and optimization
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-        
-        avg_train_loss = total_train_loss / len(train_loader)
-        
-        # Validation Phase (no gradient calculation)
-        model.eval()
-        total_val_loss = 0
-        with torch.no_grad():  # Disable gradient calculation
-            for rna_batch, image_batch in val_loader:
+    with mlflow.start_run():
+        mlflow.log_param("learning_rate", 1e-4)
+        mlflow.log_param("batch_size", 4)
+        mlflow.log_param("embedding_dim", 512)
+
+        for epoch in range(epochs):
+            # Training Phase
+            model.train()  # Set both encoders to training mode
+            total_train_loss = 0
+            for rna_batch, image_batch in train_loader:
                 rna_batch, image_batch = rna_batch.to(device), image_batch.to(device)
                 
                 # Forward pass through both encoders
@@ -118,13 +102,42 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
                 
                 # Compute contrastive loss
                 loss = criterion(rna_embeddings, image_embeddings)
-                total_val_loss += loss.item()
-        
-        avg_val_loss = total_val_loss / len(val_loader)
-        
-        # Print both training and validation loss for each epoch
-        print(f'Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}')
+                total_train_loss += loss.item()
+                
+                # Backward pass and optimization
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            
+            avg_train_loss = total_train_loss / len(train_loader)
+            
+            # Log training loss to MLflow
+            mlflow.log_metric("train_loss", avg_train_loss, step=epoch)
 
+            # Validation Phase (no gradient calculation)
+            model.eval()
+            total_val_loss = 0
+            with torch.no_grad():  # Disable gradient calculation
+                for rna_batch, image_batch in val_loader:
+                    rna_batch, image_batch = rna_batch.to(device), image_batch.to(device)
+                    
+                    # Forward pass through both encoders
+                    rna_embeddings, image_embeddings = model(rna_batch, image_batch)
+                    
+                    # Compute contrastive loss
+                    loss = criterion(rna_embeddings, image_embeddings)
+                    total_val_loss += loss.item()
+            
+            avg_val_loss = total_val_loss / len(val_loader)
+
+            # Log validation loss to MLflow
+            mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
+            
+            # Print both training and validation loss for each epoch
+            print(f'Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}')
+
+        # Log the model at the end of the run
+        mlflow.pytorch.log_model(model, "clip_model")
 
 # Step 3: Training Loop
 epochs = 10

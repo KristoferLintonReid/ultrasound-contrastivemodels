@@ -1,0 +1,15 @@
+artifact_uri: file:///home/kl2418/Documents/Barcroft/CLIPRNA/scripts/mlruns/706070177440116322/35b8045a02ae4168875703267af68d7c/artifacts
+end_time: 1729536164637
+entry_point_name: ''
+experiment_id: '706070177440116322'
+lifecycle_stage: active
+run_id: 35b8045a02ae4168875703267af68d7c
+run_name: chill-kite-169
+run_uuid: 35b8045a02ae4168875703267af68d7c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1729536112616
+status: 3
+tags: []
+user_id: kl2418

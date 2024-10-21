@@ -1,0 +1,15 @@
+artifact_uri: file:///home/kl2418/Documents/Barcroft/CLIPRNA/scripts/mlruns/706070177440116322/3963a37439494b148e8e171620acf90d/artifacts
+end_time: 1729536573339
+entry_point_name: ''
+experiment_id: '706070177440116322'
+lifecycle_stage: active
+run_id: 3963a37439494b148e8e171620acf90d
+run_name: carefree-smelt-769
+run_uuid: 3963a37439494b148e8e171620acf90d
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1729536519909
+status: 3
+tags: []
+user_id: kl2418
