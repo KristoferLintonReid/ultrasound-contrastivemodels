@@ -1,0 +1,8 @@
+
+torch
+torchvision
+nibabel
+pandas
+scikit-learn
+numpy
+Pillow
