@@ -1,3 +1,7 @@
+# Additional imports needed to load src.model and src.dataset
+import sys
+sys.path.append("..")
+
 import os
 import torch
 import pandas as pd
