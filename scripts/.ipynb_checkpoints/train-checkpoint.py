@@ -12,11 +12,11 @@ import mlflow.pytorch  # For logging PyTorch models
 import torch.nn as nn 
 
 # Set the MLflow tracking URI to point to the correct folder
-mlflow.set_tracking_uri("/home/kl2418/Documents/Barcroft/CLIPRNA/scripts/mlruns")
+mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
 
 
 # Step 1: Load RNA-Seq data
-df_rna = pd.read_csv('../RNA_counts_141024.csv', header=None, low_memory=False)
+df_rna = pd.read_csv("home/kryan24/MRes_Ultrasound/data/rna_counts/RNA_counts_141024.csv", header=None, low_memory=False)
 df_rna_transposed = df_rna.transpose()
 new_header = df_rna_transposed.iloc[1]
 df_rna_transposed = df_rna_transposed[2:]
@@ -26,12 +26,12 @@ df_rna_transposed.columns = new_header
 rna_cols = df_rna_transposed.filter(like='ENSG')
 
 # Step 3: Load and merge image data
-df_images = pd.read_excel('../RNA_Sample_Linking2.xlsx')
+df_images = pd.read_excel("/home/kryan24/MRes_Ultrasound/data/metadata/RNA_Sample_Linking2.xlsx")
 df_images['Sample ID'] = df_images['Sample ID'].str.replace(' ', '_')
 df_merged = pd.merge(df_images, df_rna_transposed, left_on='Sample ID', right_on='Geneid')
 
 # Step 4: Prepare image filenames and filter RNA data
-image_directory = '../images_matched'
+image_directory = "/home/kryan24/MRes_Ultrasound/CLIPRNA/images_matched"
 image_filenames = []
 rna_data_filtered = []
 max_pairs = 100
