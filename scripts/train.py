@@ -18,7 +18,6 @@ import torch.nn as nn
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
 
-
 # Step 1: Load RNA-Seq data
 df_rna = pd.read_csv("/home/kryan24/MRes_Ultrasound/data/rna_counts/RNA_counts_141024.csv", header=None, low_memory=False)
 df_rna_transposed = df_rna.transpose()
