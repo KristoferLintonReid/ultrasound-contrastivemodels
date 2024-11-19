@@ -88,7 +88,8 @@ criterion = ContrastiveLoss(temperature=0.5)
 mlflow.set_experiment("RNA-Image CLIP Model")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
-    with mlflow.start_run():
+    # Set run name
+    with mlflow.start_run(run_name="test_run_19112024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 4)
         mlflow.log_param("embedding_dim", 512)
