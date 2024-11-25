@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 import mlflow
 import mlflow.pytorch  # For logging PyTorch models
 import torch.nn as nn 
+import numpy as np
 
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
@@ -58,12 +59,15 @@ for index, row in df_merged.iterrows():
 # Convert to DataFrame
 rna_data_filtered = pd.DataFrame(rna_data_filtered)
 
-# Step 5: Split into train and test sets
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2)
+# Normalise RNA sample counts
+rna_data_normalised = np.log2(rna_data_filtered+1)
 
-# define transforms 
+# Step 5: Split into train and test sets
+rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2)
+
+# Define transforms 
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Resize images to a consistent size
+    transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.NEAREST),  # Resize images to a consistent size using nearest neighbour interpolation
     transforms.ToTensor(),  # Convert to tensor
 ])
 
