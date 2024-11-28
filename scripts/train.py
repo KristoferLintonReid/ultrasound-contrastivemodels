@@ -69,6 +69,7 @@ rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised,
 transform = transforms.Compose([
     transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.NEAREST),  # Resize images to a consistent size using nearest neighbour interpolation
     transforms.ToTensor(),  # Convert to tensor
+    transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) # Normalise pixel values
 ])
 
 # Create datasets with image_directory passed in
@@ -89,11 +90,11 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model")
+mlflow.set_experiment("RNA-Image CLIP Model: Modifications 1")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="test_run_19112024"):
+    with mlflow.start_run(run_name="preprocess_train_28112024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 4)
         mlflow.log_param("embedding_dim", 512)
