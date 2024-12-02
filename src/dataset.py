@@ -8,11 +8,12 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 class RNACustomDataset(Dataset):
-    def __init__(self, rna_data, image_filenames, image_directory, transform=None):
+    def __init__(self, rna_data, image_filenames, image_directory, transform=None, transform_type=""):
         self.rna_data = rna_data
         self.image_filenames = image_filenames
         self.image_directory = image_directory  # Add image_directory as a class attribute
         self.transform = transform
+        self.transform_type = transform_type
     
     def __len__(self):
         return len(self.rna_data)
@@ -29,6 +30,13 @@ class RNACustomDataset(Dataset):
         image = Image.fromarray(np.uint8(image_slice))
         
         if self.transform:
-            image = self.transform(image)
+            if self.transform_type == "albu":
+                # Convert image from PIL to openCV format
+                image_rgb = image.convert("RGB")
+                image_open_cv = np.array(image_rgb)
+                image = image_open_cv
+                image = self.transform(image=image)["image"]
+            else:
+                image = self.transform(image)
         
         return rna_sample, image

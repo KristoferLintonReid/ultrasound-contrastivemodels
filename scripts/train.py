@@ -3,6 +3,7 @@ import sys
 sys.path.append("..")
 
 import os
+os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 import torch
 import pandas as pd
 import torch.optim as optim
@@ -15,6 +16,9 @@ import mlflow
 import mlflow.pytorch  # For logging PyTorch models
 import torch.nn as nn 
 import numpy as np
+import albumentations as albu # For image augmentations
+import cv2
+from albumentations.pytorch import ToTensorV2
 
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
@@ -72,9 +76,51 @@ transform = transforms.Compose([
     transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) # Normalise pixel values
 ])
 
+transform_albu = albu.Compose([
+    albu.Resize(224, 224, interpolation=cv2.INTER_NEAREST),
+    albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ToTensorV2()
+])
+
+train_transform_albu = albu.Compose([
+    albu.HorizontalFlip(p=0.5),
+    albu.RandomRotate90(p=1),
+    albu.GaussNoise(p=0.5),
+
+    albu.OneOf(
+        [
+           albu.CLAHE(p=1),
+           albu.RandomGamma(p=1)
+        ],
+        p=0.9
+    ),
+
+    albu.OneOf(
+        [
+           albu.Sharpen(p=1),
+           albu.Blur(blur_limit=3, p=1),
+           albu.MotionBlur(blur_limit=3, p=1)
+        ],
+        p=0.9
+    ),
+
+    albu.OneOf(
+        [
+           albu.RandomBrightnessContrast(p=1),
+           albu.HueSaturationValue(p=1)
+        ],
+        p=0.9
+    ),
+
+    albu.Resize(224, 224, interpolation=cv2.INTER_NEAREST),
+    albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ToTensorV2()
+
+])
+
 # Create datasets with image_directory passed in
-train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=transform)
-test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform)
+train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=train_transform_albu, transform_type="albu")
+test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
 train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
@@ -94,7 +140,7 @@ mlflow.set_experiment("RNA-Image CLIP Model: Modifications 1")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="preprocess_train_28112024"):
+    with mlflow.start_run(run_name="all_albu_02122024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 4)
         mlflow.log_param("embedding_dim", 512)
