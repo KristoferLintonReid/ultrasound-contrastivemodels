@@ -8,6 +8,7 @@ class RNAEncoder(nn.Module):
     def __init__(self, input_dim, embedding_dim=512):
         super(RNAEncoder, self).__init__()
         self.model = nn.Sequential(
+            nn.Dropout(0.2),
             nn.Linear(input_dim, 1024),
             nn.ReLU(),
             nn.Linear(1024, 512),

@@ -136,11 +136,11 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Modifications 1")
+mlflow.set_experiment("RNA-Image CLIP Model: Modifications 2 (100 Epochs)")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="all_albu_02122024"):
+    with mlflow.start_run(run_name="baseline_dropout02_03122024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 4)
         mlflow.log_param("embedding_dim", 512)
@@ -195,5 +195,5 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
         mlflow.pytorch.log_model(model, "clip_model")
 
 # Step 3: Training Loop
-epochs = 10
+epochs = 100
 train(model, train_loader, test_loader, optimizer, criterion, device, epochs)
