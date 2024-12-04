@@ -9,6 +9,7 @@ class RNAEncoder(nn.Module):
         super(RNAEncoder, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, 1024),
+            nn.BatchNorm1d(1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),
