@@ -140,7 +140,7 @@ mlflow.set_experiment("RNA-Image CLIP Model: Modifications 2")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="4layer_512_batch1024_04122024"):
+    with mlflow.start_run(run_name="4layer_512_batch1024_12122024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 4)
         mlflow.log_param("embedding_dim", 512)
