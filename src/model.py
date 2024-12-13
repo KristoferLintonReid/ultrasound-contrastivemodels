@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import models
 from torchvision.models import ResNet50_Weights
 
@@ -51,7 +52,10 @@ class ContrastiveLoss(nn.Module):
         rna_embeddings = nn.functional.normalize(rna_embeddings, p=2, dim=-1)
         image_embeddings = nn.functional.normalize(image_embeddings, p=2, dim=-1)
         similarity_matrix = self.cosine_similarity(rna_embeddings.unsqueeze(1), image_embeddings.unsqueeze(0)) / self.temperature
-        labels = torch.arange(rna_embeddings.size(0)).to(rna_embeddings.device)
+        images_similarity = self.cosine_similarity(image_embeddings.unsqueeze(1), image_embeddings.unsqueeze(0))
+        rna_similarity = self.cosine_similarity(rna_embeddings.unsqueeze(1), rna_embeddings.unsqueeze(0))
+        labels = F.softmax(((images_similarity + rna_similarity) / 2) / self.temperature, dim=-1)
+        labels = torch.arange(labels.size(0)).to(labels.device)
         loss_fn = nn.CrossEntropyLoss()
         loss = (loss_fn(similarity_matrix, labels) + loss_fn(similarity_matrix.t(), labels)) / 2
         return loss
