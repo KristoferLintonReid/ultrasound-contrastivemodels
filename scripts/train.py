@@ -122,11 +122,12 @@ train_transform_albu = albu.Compose([
 train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=train_transform_albu, transform_type="albu")
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False)
 
 # Step 2: Initialize the Model, Optimizer, and Criterion
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("Device: ", device)
 
 rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
 image_encoder = ImageEncoder(embedding_dim=512)
@@ -136,13 +137,13 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Modifications 4")
+mlflow.set_experiment("RNA-Image CLIP Model: Batch Sizes (10 epochs)")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="bleep_loss_13122024"):
+    with mlflow.start_run(run_name="bleep_loss_batch128_17122024"):
         mlflow.log_param("learning_rate", 1e-4)
-        mlflow.log_param("batch_size", 4)
+        mlflow.log_param("batch_size", 128)
         mlflow.log_param("embedding_dim", 512)
 
         for epoch in range(epochs):
