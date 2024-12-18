@@ -60,6 +60,8 @@ for index, row in df_merged.iterrows():
                 pair_count += 1
                 break
 
+print(f"Number of Pairs: ", pair_count)
+
 # Convert to DataFrame
 rna_data_filtered = pd.DataFrame(rna_data_filtered)
 
@@ -122,12 +124,12 @@ train_transform_albu = albu.Compose([
 train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=train_transform_albu, transform_type="albu")
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
-train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # Step 2: Initialize the Model, Optimizer, and Criterion
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print("Device: ", device)
+print(f"Device: ", device)
 
 rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
 image_encoder = ImageEncoder(embedding_dim=512)
@@ -137,14 +139,18 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Batch Sizes (10 epochs)")
+mlflow.set_experiment("RNA-Image CLIP Model: Early Stopping and Reduce LR on Plateau")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="bleep_loss_batch128_17122024"):
+    with mlflow.start_run(run_name="earlyStopping_test_18122024"):
         mlflow.log_param("learning_rate", 1e-4)
-        mlflow.log_param("batch_size", 128)
+        mlflow.log_param("batch_size", 32)
         mlflow.log_param("embedding_dim", 512)
+
+        # Initialise variables for early stopping
+        best_loss = None
+        patience = 10
 
         for epoch in range(epochs):
             # Training Phase
@@ -192,9 +198,22 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
             # Print both training and validation loss for each epoch
             print(f'Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}')
 
+            # Early stopping
+            if best_loss is None:
+                best_loss = avg_val_loss
+            elif avg_val_loss < best_loss:
+                best_loss = avg_val_loss
+                patience = 10
+            else:
+                patience -=1
+                if patience == 0:
+                    print(f"Early Stopping")
+                    mlflow.log_metric("early_stopping_epoch", epoch)
+                    break
+
         # Log the model at the end of the run
         mlflow.pytorch.log_model(model, "clip_model")
 
 # Step 3: Training Loop
-epochs = 10
+epochs = 1000
 train(model, train_loader, test_loader, optimizer, criterion, device, epochs)
