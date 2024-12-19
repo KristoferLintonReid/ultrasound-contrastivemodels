@@ -143,14 +143,14 @@ mlflow.set_experiment("RNA-Image CLIP Model: Early Stopping and Reduce LR on Pla
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="earlyStopping_test_18122024"):
+    with mlflow.start_run(run_name="earlyStopping_test_19122024"):
         mlflow.log_param("learning_rate", 1e-4)
         mlflow.log_param("batch_size", 32)
         mlflow.log_param("embedding_dim", 512)
 
         # Initialise variables for early stopping
         best_loss = None
-        patience = 10
+        patience = 20
 
         for epoch in range(epochs):
             # Training Phase
