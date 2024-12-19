@@ -223,11 +223,14 @@ def objective(trial):
                     mlflow.log_param("early_stopping_epoch", epoch)
                     mlflow.log_param("learning_rate", scheduler.get_last_lr()[0])
                     break
-
+                
+        # Log the model at the end of the run
+        mlflow.pytorch.log_model(model, "clip_model")            
+    
     return avg_val_loss
         
 # Create the optuna study which shares the experiment name
-study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize")
+study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize", sampler=optuna.samplers.RandomSampler())
 study.optimize(objective, n_trials=5)
 
 # Print optuna study statistics
