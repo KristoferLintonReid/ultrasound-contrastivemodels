@@ -135,16 +135,19 @@ rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
 image_encoder = ImageEncoder(embedding_dim=512)
 
 model = CLIPModel(rna_encoder, image_encoder).to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
 criterion = ContrastiveLoss(temperature=0.5)
+
+# ReduceLROnPlateau
+learning_rate = 1e-4 # Initialise
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5)
 
 # MLflow setup
 mlflow.set_experiment("RNA-Image CLIP Model: Early Stopping and Reduce LR on Plateau")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     # Set run name
-    with mlflow.start_run(run_name="earlyStopping_test_19122024"):
-        mlflow.log_param("learning_rate", 1e-4)
+    with mlflow.start_run(run_name="reduceLR_test_2_19122024"):
         mlflow.log_param("batch_size", 32)
         mlflow.log_param("embedding_dim", 512)
 
@@ -192,11 +195,14 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
             
             avg_val_loss = total_val_loss / len(val_loader)
 
+            # Step the learning rate scheduler based on the validation loss
+            scheduler.step(avg_val_loss)
+
             # Log validation loss to MLflow
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
             
             # Print both training and validation loss for each epoch
-            print(f'Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}')
+            print(f"Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}, Learning Rate: {scheduler.get_last_lr()[0]}")
 
             # Early stopping
             if best_loss is None:
@@ -208,7 +214,8 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
                 patience -=1
                 if patience == 0:
                     print(f"Early Stopping")
-                    mlflow.log_metric("early_stopping_epoch", epoch)
+                    mlflow.log_param("early_stopping_epoch", epoch)
+                    mlflow.log_param("learning_rate", scheduler.get_last_lr()[0])
                     break
 
         # Log the model at the end of the run
