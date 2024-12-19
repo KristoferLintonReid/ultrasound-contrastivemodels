@@ -19,6 +19,8 @@ import numpy as np
 import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
+import optuna
+from src.optimise import suggest_hyperparameters
 
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
@@ -124,36 +126,40 @@ train_transform_albu = albu.Compose([
 train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=train_transform_albu, transform_type="albu")
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
-
-# Step 2: Initialize the Model, Optimizer, and Criterion
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"Device: ", device)
-
-rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
-image_encoder = ImageEncoder(embedding_dim=512)
-
-model = CLIPModel(rna_encoder, image_encoder).to(device)
-criterion = ContrastiveLoss(temperature=0.5)
-
-# ReduceLROnPlateau
-learning_rate = 1e-4 # Initialise
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5)
-
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Early Stopping and Reduce LR on Plateau")
+mlflow.set_experiment("RNA-Image CLIP Model: Hyperparameter Tuning")
 
-def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
-    # Set run name
-    with mlflow.start_run(run_name="reduceLR_test_2_19122024"):
-        mlflow.log_param("batch_size", 32)
-        mlflow.log_param("embedding_dim", 512)
+# MLflow Optuna objective function
+def objective(trial):
+    # Initialise variables for early stopping
+    best_val_loss = None
+    patience = 20
 
-        # Initialise variables for early stopping
-        best_loss = None
-        patience = 20
+    # Start MLflow run 
+    with mlflow.start_run():
+        # Get hyperparameter suggestions from Optuna
+        batch_size = suggest_hyperparameters(trial)
+        mlflow.log_params(trial.params)
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+        # Step 2: Initialize the Model, Optimizer, and Criterion
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Device: ", device)
+
+        rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
+        image_encoder = ImageEncoder(embedding_dim=512)
+
+        model = CLIPModel(rna_encoder, image_encoder).to(device)
+        criterion = ContrastiveLoss(temperature=0.5)
+
+        # ReduceLROnPlateau
+        learning_rate = 1e-4 # Initialise
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5)
+
+        epochs = 1000
 
         for epoch in range(epochs):
             # Training Phase
@@ -205,10 +211,10 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
             print(f"Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}, Learning Rate: {scheduler.get_last_lr()[0]}")
 
             # Early stopping
-            if best_loss is None:
-                best_loss = avg_val_loss
-            elif avg_val_loss < best_loss:
-                best_loss = avg_val_loss
+            if best_val_loss is None:
+                best_val_loss = avg_val_loss
+            elif avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
                 patience = 10
             else:
                 patience -=1
@@ -218,9 +224,23 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
                     mlflow.log_param("learning_rate", scheduler.get_last_lr()[0])
                     break
 
-        # Log the model at the end of the run
-        mlflow.pytorch.log_model(model, "clip_model")
+    return avg_val_loss
+        
+# Create the optuna study which shares the experiment name
+study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize")
+study.optimize(objective, n_trials=5)
 
-# Step 3: Training Loop
-epochs = 1000
-train(model, train_loader, test_loader, optimizer, criterion, device, epochs)
+# Print optuna study statistics
+print("\n++++++++++++++++++++++++++++++++++\n")
+print("Study statistics: ")
+print("  Number of finished trials: ", len(study.trials))
+
+print("Best trial:")
+trial = study.best_trial
+
+print("  Trial number: ", trial.number)
+print("  Loss (trial value): ", trial.value)
+
+print("  Params: ")
+for key, value in trial.params.items():
+    print("    {}: {}".format(key, value))
