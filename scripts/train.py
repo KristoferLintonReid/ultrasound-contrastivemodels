@@ -230,8 +230,12 @@ def objective(trial):
     return avg_val_loss
         
 # Create the optuna study which shares the experiment name
-study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize", sampler=optuna.samplers.RandomSampler())
-study.optimize(objective, n_trials=5)
+search_space = {
+    "batch_size": [32, 64, 128, 256]
+}
+
+study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize", sampler=optuna.samplers.GridSampler(search_space))
+study.optimize(objective)
 
 # Print optuna study statistics
 print("\n++++++++++++++++++++++++++++++++++\n")
