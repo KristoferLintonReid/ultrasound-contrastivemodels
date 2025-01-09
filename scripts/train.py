@@ -226,6 +226,7 @@ def objective(trial):
                     print(f"Early Stopping")
                     mlflow.log_param("early_stopping_epoch", epoch)
                     mlflow.log_param("learning_rate", scheduler.get_last_lr()[0])
+                    mlflow.log_param("learning_rate_sci", "{:.2e}".format(scheduler.get_last_lr()[0]))
                     break
                 
         # Log the model at the end of the run
