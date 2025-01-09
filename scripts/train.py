@@ -71,7 +71,8 @@ rna_data_filtered = pd.DataFrame(rna_data_filtered)
 rna_data_normalised = np.log2(rna_data_filtered+1)
 
 # Step 5: Split into train and test sets
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2)
+random_state = 2
+rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2, random_state=random_state)
 
 # Define transforms 
 transform = transforms.Compose([
@@ -127,7 +128,7 @@ train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transfor
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Hyperparameter Tuning")
+mlflow.set_experiment("RNA-Image CLIP Model: RNA Encoder Adjusted")
 
 # MLflow Optuna objective function
 def objective(trial):
@@ -140,6 +141,9 @@ def objective(trial):
         # Get hyperparameter suggestions from Optuna
         batch_size = suggest_hyperparameters(trial)
         mlflow.log_params(trial.params)
+
+        # Log random state
+        mlflow.log_param("random_state", random_state)
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -155,9 +159,9 @@ def objective(trial):
         criterion = ContrastiveLoss(temperature=0.5)
 
         # ReduceLROnPlateau
-        learning_rate = 1e-4 # Initialise
+        learning_rate = 1e-3 # Initialise
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=10)
 
         epochs = 1000
 
@@ -215,7 +219,7 @@ def objective(trial):
                 best_val_loss = avg_val_loss
             elif avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
-                patience = 10
+                patience = 20
             else:
                 patience -=1
                 if patience == 0:
