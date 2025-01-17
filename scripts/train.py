@@ -20,7 +20,7 @@ import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
 import optuna
-from src.optimise import suggest_hyperparameters
+from src.optimise import suggest_hyperparameters, set_seed
 
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
@@ -71,8 +71,7 @@ rna_data_filtered = pd.DataFrame(rna_data_filtered)
 rna_data_normalised = np.log2(rna_data_filtered+1)
 
 # Step 5: Split into train and test sets
-random_state = 2
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2, random_state=random_state)
+rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2, random_state=2)
 
 # Define transforms 
 transform = transforms.Compose([
@@ -128,7 +127,11 @@ train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transfor
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: RNA Encoder Adjusted")
+mlflow.set_experiment("RNA-Image CLIP Model: Random Seeds Set")
+
+# Set random seed
+random_seed = 1
+set_seed(random_seed)
 
 # MLflow Optuna objective function
 def objective(trial):
@@ -142,11 +145,11 @@ def objective(trial):
         batch_size = suggest_hyperparameters(trial)
         mlflow.log_params(trial.params)
 
-        # Log random state
-        mlflow.log_param("random_state", random_state)
+        # Log random seed
+        mlflow.log_param("random_seed", random_seed)
 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+        val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
         # Step 2: Initialize the Model, Optimizer, and Criterion
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
