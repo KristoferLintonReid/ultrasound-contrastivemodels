@@ -20,7 +20,7 @@ import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
 import optuna
-from src.optimise import suggest_hyperparameters, set_seed, calc_mean_std
+from src.optimise import set_seed, calc_mean_std
 from sklearn.preprocessing import StandardScaler
 
 # Set the MLflow tracking URI to point to the correct folder
@@ -158,60 +158,48 @@ train_transform_albu = albu.Compose([
 train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transform=train_transform_albu, transform_type="albu")
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
-# MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Reccomendations 20012025")
-
-# Set random seed
-random_seed = 1
+# Set random seed for weights
+random_seed = 2
 set_seed(random_seed)
 
-# MLflow Optuna objective function
-def objective(trial):
-    # Initialise variables for early stopping
-    best_val_loss = None
-    patience = 20
+batch_size = 256
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    # Start MLflow run 
+# Step 2: Initialize the Model, Optimizer, and Criterion
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Device: ", device)
+
+rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=128)
+image_encoder = ImageEncoder(embedding_dim=128)
+
+model = CLIPModel(rna_encoder, image_encoder).to(device)
+learning_rate = 1e-4 # Initialise
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+criterion = ContrastiveLoss()
+
+# MLflow setup
+mlflow.set_experiment("RNA-Image CLIP Model: Update 20012025")
+
+def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     with mlflow.start_run():
-        # Get hyperparameter suggestions from Optuna
-        batch_size = suggest_hyperparameters(trial)
-        mlflow.log_params(trial.params)
-
-        # Log random seed
-        mlflow.log_param("random_seed", random_seed)
-
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-        val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
-
-        # Step 2: Initialize the Model, Optimizer, and Criterion
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"Device: ", device)
-
-        rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=128)
-        image_encoder = ImageEncoder(embedding_dim=128)
-
-        model = CLIPModel(rna_encoder, image_encoder).to(device)
-        criterion = ContrastiveLoss()
-
-        # ReduceLROnPlateau
-        learning_rate = 1e-4 # Initialise
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=10)
-
-        epochs = 10
+        mlflow.log_param("learning_rate", learning_rate)
+        mlflow.log_param("learning_rate_sci", "{:.2e}".format(learning_rate))
+        mlflow.log_param("batch_size", batch_size)
+        mlflow.log_param("embedding_dim", 128)
 
         for epoch in range(epochs):
             # Training Phase
-            model.train()  # Set both encoders to training mode
+            model.train() # Set both encoders to training mode
             total_train_loss = 0
-            for rna_batch, image_batch in train_loader:
-                rna_batch, image_batch = rna_batch.to(device), image_batch.to(device)
-                
+            for rna_batch, image_batch, labels in train_loader:
+                rna_batch, image_batch, labels = rna_batch.to(device), image_batch.to(device), labels.to(device)
+
                 # Forward pass through both encoders
                 rna_embeddings, image_embeddings = model(rna_batch, image_batch)
-                
+
                 # Compute contrastive loss
-                loss = criterion(rna_embeddings, image_embeddings)
+                loss = criterion(rna_embeddings, image_embeddings, labels)
                 total_train_loss += loss.item()
                 
                 # Backward pass and optimization
@@ -220,74 +208,26 @@ def objective(trial):
                 optimizer.step()
             
             avg_train_loss = total_train_loss / len(train_loader)
-            
-            # Log training loss to MLflow
             mlflow.log_metric("train_loss", avg_train_loss, step=epoch)
 
-            # Validation Phase (no gradient calculation)
+            # Validation Phase
             model.eval()
             total_val_loss = 0
-            with torch.no_grad():  # Disable gradient calculation
-                for rna_batch, image_batch in val_loader:
-                    rna_batch, image_batch = rna_batch.to(device), image_batch.to(device)
-                    
-                    # Forward pass through both encoders
+            with torch.no_grad():
+                for rna_batch, image_batch, labels in val_loader:
+                    rna_batch, image_batch, labels = rna_batch.to(device), image_batch.to(device), labels.to(device)
+
                     rna_embeddings, image_embeddings = model(rna_batch, image_batch)
-                    
-                    # Compute contrastive loss
-                    loss = criterion(rna_embeddings, image_embeddings)
+                    loss = criterion(rna_embeddings, image_embeddings, labels)
                     total_val_loss += loss.item()
             
             avg_val_loss = total_val_loss / len(val_loader)
-
-            # Step the learning rate scheduler based on the validation loss
-            scheduler.step(avg_val_loss)
-
-            # Log validation loss to MLflow
             mlflow.log_metric("val_loss", avg_val_loss, step=epoch)
-            
-            # Print both training and validation loss for each epoch
-            print(f"Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}, Learning Rate: {scheduler.get_last_lr()[0]}")
 
-            # Early stopping
-            if best_val_loss is None:
-                best_val_loss = avg_val_loss
-            elif avg_val_loss < best_val_loss:
-                best_val_loss = avg_val_loss
-                patience = 20
-            else:
-                patience -=1
-                if patience == 0:
-                    print(f"Early Stopping")
-                    mlflow.log_param("early_stopping_epoch", epoch)
-                    mlflow.log_param("learning_rate", scheduler.get_last_lr()[0])
-                    mlflow.log_param("learning_rate_sci", "{:.2e}".format(scheduler.get_last_lr()[0]))
-                    break
-                
-        # Log the model at the end of the run
-        mlflow.pytorch.log_model(model, "clip_model")            
-    
-    return avg_val_loss
-        
-# Create the optuna study which shares the experiment name
-search_space = {
-    "batch_size": [32, 64, 128, 256]
-}
+            print(f'Epoch {epoch+1}/{epochs}, Training Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}')
 
-study = optuna.create_study(study_name="RNA-Image CLIP Model: Hyperparameter Tuning", direction="minimize", sampler=optuna.samplers.GridSampler(search_space))
-study.optimize(objective)
+        mlflow.pytorch.log_model(model, "clip_model")
 
-# Print optuna study statistics
-print("\n++++++++++++++++++++++++++++++++++\n")
-print("Study statistics: ")
-print("  Number of finished trials: ", len(study.trials))
-
-print("Best trial:")
-trial = study.best_trial
-
-print("  Trial number: ", trial.number)
-print("  Loss (trial value): ", trial.value)
-
-print("  Params: ")
-for key, value in trial.params.items():
-    print("    {}: {}".format(key, value))
+# Step 3: Training Loop
+epochs = 100
+train(model, train_loader, test_loader, optimizer, criterion, device, epochs)

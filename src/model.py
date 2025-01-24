@@ -43,16 +43,17 @@ class CLIPModel(nn.Module):
         return rna_embeddings, image_embeddings
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, temperature=0.5):
+    def __init__(self, margin=1.0):
         super(ContrastiveLoss, self).__init__()
-        self.temperature = temperature
+        self.margin = margin
         self.cosine_similarity = nn.CosineSimilarity(dim=-1)
-    
-    def forward(self, rna_embeddings, image_embeddings):
-        rna_embeddings = nn.functional.normalize(rna_embeddings, p=2, dim=-1)
-        image_embeddings = nn.functional.normalize(image_embeddings, p=2, dim=-1)
-        similarity_matrix = self.cosine_similarity(rna_embeddings.unsqueeze(1), image_embeddings.unsqueeze(0)) / self.temperature
-        labels = torch.arange(rna_embeddings.size(0)).to(rna_embeddings.device)
-        loss_fn = nn.CrossEntropyLoss()
-        loss = (loss_fn(similarity_matrix, labels) + loss_fn(similarity_matrix.t(), labels)) / 2
-        return loss
+
+    def forward(self, rna_embeddings, image_embeddings, labels):
+        # Compute cosine similarity
+        similarities = self.cosine_similarity(rna_embeddings, image_embeddings)
+        
+        # Contrastive loss
+        positive_loss = labels * (1 - similarities)  # For positive pairs
+        negative_loss = (1 - labels) * torch.relu(similarities - self.margin)  # For negative pairs
+
+        return torch.mean(positive_loss + negative_loss)
