@@ -1,9 +1,12 @@
-# MLflow with Optuna: Hyperparameter Optimization and Tracking
-# https://medium.com/swlh/pytorch-mlflow-optuna-experiment-tracking-and-hyperparameter-optimization-132778d6defc
 import torch 
 import numpy as np
 import random
 import os
+from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+
+# MLflow with Optuna: Hyperparameter Optimization and Tracking
+# https://medium.com/swlh/pytorch-mlflow-optuna-experiment-tracking-and-hyperparameter-optimization-132778d6defc
 
 def suggest_hyperparameters(trial):
     
@@ -30,3 +33,31 @@ def set_seed(random_seed):
     os.environ["PYTHONHASHSEED"] = str(random_seed)
 
     print(f"Random seed set as {random_seed}")
+
+# Compute Mean and Standard Deviation for Normalisation
+# https://www.kaggle.com/code/subhajeetdas/find-mean-and-std-for-image-normalization-pytorch
+# https://www.kaggle.com/code/kozodoi/mean-and-std-of-pet-photos
+# https://gist.github.com/spirosdim/79fc88231fffec347f1ad5d14a36b5a8
+# https://kozodoi.me/blog/20210308/compute-image-stats
+
+def calc_mean_std(img_dataset, num_imgs):
+
+    # Load images
+    img_loader = DataLoader(img_dataset, batch_size=256, shuffle=False, num_workers=0)
+
+    # Placeholders
+    sum_pixels = torch.tensor([0.0, 0.0, 0.0])
+    sum_pixels_sq = torch.tensor([0.0, 0.0, 0.0])
+
+    # Loop through images
+    for images in img_loader:
+        sum_pixels += images.sum(axis=[0, 2, 3])
+        sum_pixels_sq += (images**2).sum(axis=[0, 2, 3])
+
+    # Calculate mean and standard deviation
+    img_size = 224
+    pixel_count = num_imgs * img_size * img_size
+    mean = sum_pixels/pixel_count
+    std = torch.sqrt((sum_pixels_sq/pixel_count)-(mean**2))
+ 
+    return mean.tolist(), std.tolist()

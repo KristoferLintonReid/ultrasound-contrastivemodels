@@ -10,7 +10,7 @@ import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from src.model import CLIPModel, RNAEncoder, ImageEncoder, ContrastiveLoss
-from src.dataset import RNACustomDataset
+from src.dataset import RNACustomDataset, ImgCustomDataset
 from sklearn.model_selection import train_test_split
 import mlflow
 import mlflow.pytorch  # For logging PyTorch models
@@ -20,7 +20,8 @@ import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
 import optuna
-from src.optimise import suggest_hyperparameters, set_seed
+from src.optimise import suggest_hyperparameters, set_seed, calc_mean_std
+from sklearn.preprocessing import StandardScaler
 
 # Set the MLflow tracking URI to point to the correct folder
 mlflow.set_tracking_uri("/home/kryan24/MRes_Ultrasound/CLIPRNA/scripts/mlruns")
@@ -67,22 +68,53 @@ print(f"Number of Pairs: ", pair_count)
 # Convert to DataFrame
 rna_data_filtered = pd.DataFrame(rna_data_filtered)
 
-# Normalise RNA sample counts
-rna_data_normalised = np.log2(rna_data_filtered+1)
-
 # Step 5: Split into train and test sets
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_normalised, image_filenames, test_size=0.2, random_state=2)
+rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2, random_state=4)
+# Convert back to DataFrame
+rna_train = pd.DataFrame(rna_train, columns=rna_data_filtered.columns)
+rna_test = pd.DataFrame(rna_test, columns=rna_data_filtered.columns)
+
+# Scale RNA sample counts
+scaler = StandardScaler()
+rna_train = pd.DataFrame(scaler.fit_transform(rna_train), columns=rna_data_filtered.columns)
+rna_test = pd.DataFrame(scaler.transform(rna_test), columns=rna_data_filtered.columns)
+
+#### Calculate mean and standard deviation for normalisation ####
+
+# Define pre-transforms 
+pre_transform = transforms.Compose([
+    transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.NEAREST),  # Resize images to a consistent size using nearest neighbour interpolation
+    transforms.ToTensor()  # Convert to tensor
+])
+
+pre_transform_albu = albu.Compose([
+    albu.Resize(224, 224, interpolation=cv2.INTER_NEAREST),
+    albu.Normalize(mean=(0, 0, 0), std=(1, 1, 1)),
+    ToTensorV2()
+])
+
+# Create dataset with image_directory passed in
+train_img_dataset = ImgCustomDataset(img_train, image_directory, transform=pre_transform_albu, transform_type="albu")
+
+# Calculate mean and standard deviation 
+num_imgs = len(img_train)
+calc_mean, calc_std = calc_mean_std(train_img_dataset, num_imgs)
+
+print(f"Mean: {calc_mean}")
+print(f"Standard Deviation: {calc_std}")
+
+#### END ####
 
 # Define transforms 
 transform = transforms.Compose([
     transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.NEAREST),  # Resize images to a consistent size using nearest neighbour interpolation
     transforms.ToTensor(),  # Convert to tensor
-    transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) # Normalise pixel values
+    transforms.Normalize(mean=calc_mean, std=calc_std) # Normalise pixel values
 ])
 
 transform_albu = albu.Compose([
     albu.Resize(224, 224, interpolation=cv2.INTER_NEAREST),
-    albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    albu.Normalize(mean=calc_mean, std=calc_std),
     ToTensorV2()
 ])
 
@@ -117,7 +149,7 @@ train_transform_albu = albu.Compose([
     ),
 
     albu.Resize(224, 224, interpolation=cv2.INTER_NEAREST),
-    albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    albu.Normalize(mean=calc_mean, std=calc_std),
     ToTensorV2()
 
 ])
@@ -127,7 +159,7 @@ train_dataset = RNACustomDataset(rna_train, img_train, image_directory, transfor
 test_dataset = RNACustomDataset(rna_test, img_test, image_directory, transform=transform_albu, transform_type="albu")
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Random Seeds Set")
+mlflow.set_experiment("RNA-Image CLIP Model: Reccomendations 20012025")
 
 # Set random seed
 random_seed = 1
@@ -155,18 +187,18 @@ def objective(trial):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Device: ", device)
 
-        rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=512)
-        image_encoder = ImageEncoder(embedding_dim=512)
+        rna_encoder = RNAEncoder(input_dim=len(rna_cols.columns), embedding_dim=128)
+        image_encoder = ImageEncoder(embedding_dim=128)
 
         model = CLIPModel(rna_encoder, image_encoder).to(device)
-        criterion = ContrastiveLoss(temperature=0.5)
+        criterion = ContrastiveLoss()
 
         # ReduceLROnPlateau
-        learning_rate = 1e-3 # Initialise
+        learning_rate = 1e-4 # Initialise
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=10)
 
-        epochs = 1000
+        epochs = 10
 
         for epoch in range(epochs):
             # Training Phase
