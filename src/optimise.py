@@ -4,6 +4,8 @@ import random
 import os
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import randomname
+from random import randint
 
 # MLflow with Optuna: Hyperparameter Optimization and Tracking
 # https://medium.com/swlh/pytorch-mlflow-optuna-experiment-tracking-and-hyperparameter-optimization-132778d6defc
@@ -61,3 +63,14 @@ def calc_mean_std(img_dataset, num_imgs):
     std = torch.sqrt((sum_pixels_sq/pixel_count)-(mean**2))
  
     return mean.tolist(), std.tolist()
+
+# Random model name function similar to MLFlow
+def generate_model_name():
+    # Create random name 
+    name = randomname.get_name(adj=("sound", "appearance", "emotions"), noun=("cats", "apex_predators", "dogs", "birds", "fish"))
+    num = randint(100, 999)
+
+    # Join name
+    model_name = str(name) + "-" + str(num) + ".pt"
+
+    return model_name

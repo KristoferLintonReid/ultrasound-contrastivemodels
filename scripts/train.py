@@ -20,7 +20,7 @@ import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
 import optuna
-from src.optimise import set_seed, calc_mean_std
+from src.optimise import set_seed, calc_mean_std, generate_model_name
 from sklearn.preprocessing import StandardScaler
 
 # Set the MLflow tracking URI to point to the correct folder
@@ -166,7 +166,7 @@ batch_size = 256
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-# Step 2: Initialize the Model, Optimizer, and Criterion
+# Step 6: Initialize the Model, Optimizer, and Criterion
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: ", device)
 
@@ -179,7 +179,7 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 criterion = ContrastiveLoss()
 
 # MLflow setup
-mlflow.set_experiment("RNA-Image CLIP Model: Update 20012025")
+mlflow.set_experiment("RNA-Image CLIP Model: Inference 29012025")
 
 def train(model, train_loader, val_loader, optimizer, criterion, device, epochs):
     with mlflow.start_run():
@@ -228,6 +228,20 @@ def train(model, train_loader, val_loader, optimizer, criterion, device, epochs)
 
         mlflow.pytorch.log_model(model, "clip_model")
 
-# Step 3: Training Loop
+# Step 7: Training Loop
 epochs = 100
 train(model, train_loader, test_loader, optimizer, criterion, device, epochs)
+
+# Step 8: Save the model checkpoint (weights, hyperparameters, architectures)
+model_directory = "/home/kryan24/MRes_Ultrasound/CLIPRNA/saved_models/"
+model_name = generate_model_name()
+model_path = model_directory + model_name
+
+torch.save({
+    "rna_encoder_state_dict": rna_encoder.state_dict(),
+    "image_encoder_state_dict": image_encoder.state_dict(),
+    "optimizer_state_dict": optimizer.state_dict(),
+    "clip_model_state_dict": model.state_dict(),
+    "contrastive_loss_state_dict": criterion.state_dict(),
+    "epoch": epochs,
+}, model_path)
