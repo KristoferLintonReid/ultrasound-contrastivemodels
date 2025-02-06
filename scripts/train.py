@@ -20,7 +20,7 @@ import albumentations as albu # For image augmentations
 import cv2
 from albumentations.pytorch import ToTensorV2
 import optuna
-from src.optimise import set_seed, calc_mean_std, generate_model_name
+from src.optimise import set_seed, calc_mean_std, generate_model_name, capitalize_j, format_case_id
 from sklearn.preprocessing import StandardScaler
 
 # Set the MLflow tracking URI to point to the correct folder
@@ -52,16 +52,23 @@ for index, row in df_merged.iterrows():
     if pair_count >= max_pairs:
         break
     
-    case_id = str(row['CASE ID ']).strip() if pd.notna(row['CASE ID ']) else ''
-    case_id2 = str(row['CASE ID2']).strip() if pd.notna(row['CASE ID2']) else ''
+    # Format and capitalize the CASE IDs
+    case_id = capitalize_j(format_case_id(row['CASE ID ']))
+    case_id2 = capitalize_j(format_case_id(row['CASE ID2']))
     
     for file_name in os.listdir(image_directory):
         if file_name.endswith('.nii.gz') and 'seg' not in file_name:
-            if case_id in file_name or case_id2 in file_name:
+            file_name_corrected = capitalize_j(file_name)  # Capitalize 'j' in the filename
+
+            # Check if either case_id or case_id2 is a substring of the filename
+            # Only check if the ID is non-empty
+            if (case_id and case_id in file_name_corrected) or (case_id2 and case_id2 in file_name_corrected):
                 image_filenames.append(file_name)
-                rna_data_filtered.append(row[rna_cols.columns].apply(pd.to_numeric, errors='coerce').fillna(0))
+                rna_data_filtered.append(
+                    row[rna_cols.columns].apply(pd.to_numeric, errors='coerce').fillna(0)
+                )
                 pair_count += 1
-                break
+                break  # Only use the first matching image for each row
 
 print(f"Number of Pairs: ", pair_count)
 
@@ -69,7 +76,7 @@ print(f"Number of Pairs: ", pair_count)
 rna_data_filtered = pd.DataFrame(rna_data_filtered)
 
 # Step 5: Split into train and test sets
-rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2, random_state=4)
+rna_train, rna_test, img_train, img_test = train_test_split(rna_data_filtered, image_filenames, test_size=0.2, random_state=2)
 # Convert back to DataFrame
 rna_train = pd.DataFrame(rna_train, columns=rna_data_filtered.columns)
 rna_test = pd.DataFrame(rna_test, columns=rna_data_filtered.columns)
