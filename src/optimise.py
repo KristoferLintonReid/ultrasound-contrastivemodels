@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import randomname
 from random import randint
+import pandas as pd
 
 # MLflow with Optuna: Hyperparameter Optimization and Tracking
 # https://medium.com/swlh/pytorch-mlflow-optuna-experiment-tracking-and-hyperparameter-optimization-132778d6defc
@@ -74,3 +75,27 @@ def generate_model_name():
     model_name = str(name) + "-" + str(num) + ".pt"
 
     return model_name
+
+def capitalize_j(text):
+    """Ensure 'j' is always capitalized in the string without affecting other characters."""
+    return text.replace('j', 'J') if text else text
+
+def format_case_id(case_val):
+    """
+    Convert the case ID value to a properly formatted string.
+    If the value is numeric and represents an integer, convert it to int first
+    to avoid a trailing '.0'. Otherwise, return the stripped string.
+    """
+    if pd.isna(case_val):
+        return ''
+    try:
+        # Try converting to a float first
+        num = float(case_val)
+        # If the number is an integer value, return it as an integer string.
+        if num.is_integer():
+            return str(int(num))
+        else:
+            return str(case_val)
+    except Exception:
+        # If conversion fails, treat it as a string.
+        return str(case_val).strip()
