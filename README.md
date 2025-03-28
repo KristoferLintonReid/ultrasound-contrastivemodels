@@ -9,25 +9,26 @@ This repository contains code for training a **CLIP-like model** that aligns **R
 . ├── data/ │ └── ... # (Optional) Local data files or samples ├── etc/ │ └── requirements.txt # Pinned dependencies ├── figures/ │ └── Overiview.jpeg # Diagram or overview image ├── models/ │ └── ... # Model definition files (encoders, etc.) ├── notebooks/ │ └── ... # Jupyter notebooks for experimentation ├── scripts/ │ ├── train.py # Main training script │ └── validate.py # Validation/testing script └── src/ ├── dataset.py # Custom dataset & transformations ├── losses.py # Contrastive loss definitions ├── model.py # Encoders + CLIP model ├── utils.py # Utility functions (training loops, etc.) └── ...
 ```
    
-  ## Setup & Installation
+## Setup & Installation
   
-  ### 1. Clone the Repository
+### 1. Clone the Repository
   
-  ```bash
+  bash
   git clone https://github.com/YourUsername/ultrasound-contrastivemodels.git
   cd ultrasound-contrastivemodels
-2. Create (Optional) and Activate a Python Environment
+ 
+### 2. Create (Optional) and Activate a Python Environment
 
 You can use conda or virtualenv. For example, with conda:
 
-conda create -n cliprna-env python=3.9
-conda activate cliprna-env
+   conda create -n cliprna-env python=3.9
+   conda activate cliprna-env
 
-3. Install Dependencies
+### 3. Install Dependencies
 
 We recommend using the pinned requirements in etc/requirements.txt:
 
-pip install -r etc/requirements.txt
+   pip install -r etc/requirements.txt
 
 This installs all necessary packages, including PyTorch, albumentations, nibabel, etc.
 Data Preparation
@@ -42,35 +43,35 @@ Make sure to update the paths in the scripts or command-line arguments as needed
 Training the Model
 
 Run the main training script:
-
-python scripts/train.py \
-  --rna_csv path/to/RNA_counts.csv \
-  --metadata_xlsx path/to/metadata.xlsx \
-  --image_dir path/to/nii_gz_images \
-  --epochs 5 \
-  --batch_size 32
+   
+   python scripts/train.py \
+     --rna_csv path/to/RNA_counts.csv \
+     --metadata_xlsx path/to/metadata.xlsx \
+     --image_dir path/to/nii_gz_images \
+     --epochs 5 \
+     --batch_size 32
 
 Key Arguments:
 
-    --rna_csv: Path to the CSV containing RNA data.
-
-    --metadata_xlsx: Path to the Excel file linking sample IDs.
-
-    --image_dir: Directory with .nii.gz image files.
-
-    --epochs: Number of training epochs.
-
-    --batch_size: Batch size (default 32).
+       --rna_csv: Path to the CSV containing RNA data.
+   
+       --metadata_xlsx: Path to the Excel file linking sample IDs.
+   
+       --image_dir: Directory with .nii.gz image files.
+   
+       --epochs: Number of training epochs.
+   
+       --batch_size: Batch size (default 32).
 
 Additional arguments are available (e.g., --max_pairs, --negative_ratio, etc.). See scripts/train.py --help for more details.
 Validation
 
 After training, you can validate (or test) the model using a similar approach:
 
-python scripts/validate.py \
-  --rna_csv path/to/RNA_counts_val.csv \
-  --metadata_xlsx path/to/metadata_val.xlsx \
-  --image_dir path/to/nii_gz_images
+   python scripts/validate.py \
+     --rna_csv path/to/RNA_counts_val.csv \
+     --metadata_xlsx path/to/metadata_val.xlsx \
+     --image_dir path/to/nii_gz_images
 
 Model Architecture
 
