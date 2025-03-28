@@ -5,8 +5,6 @@ This repository contains code for training a **CLIP-like model** that aligns **R
 ![Overview of the RNA+Image CLIP pipeline](figures/Overiview.jpeg)
 
 ## Repository Structure
-
 ```
 . ├── data/ │ └── ... # (Optional) Local data files or samples ├── etc/ │ └── requirements.txt # Pinned dependencies ├── figures/ │ └── Overiview.jpeg # Diagram or overview image ├── models/ │ └── ... # Model definition files (encoders, etc.) ├── notebooks/ │ └── ... # Jupyter notebooks for experimentation ├── scripts/ │ ├── train.py # Main training script │ └── validate.py # Validation/testing script └── src/ ├── dataset.py # Custom dataset & transformations ├── losses.py # Contrastive loss definitions ├── model.py # Encoders + CLIP model ├── utils.py # Utility functions (training loops, etc.) └── ...
-'''
-
+```
