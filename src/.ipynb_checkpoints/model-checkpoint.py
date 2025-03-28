@@ -130,7 +130,7 @@ class SimpleViT(nn.Module):
         return self.model(x)
 
 ###############################################################################
-# 5. IMAGE ENCODERS 
+# 5. IMAGE ENCODER FACTORY
 ###############################################################################
 def create_image_encoder(model_choice, embedding_dim=128):
     """
