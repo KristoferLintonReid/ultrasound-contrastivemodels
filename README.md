@@ -1,6 +1,8 @@
-# RNA & Image CLIP Model
+# RNA & Image Contrastive Model
 
-This repository contains code for training a **CLIP-like model** that aligns **RNA-Seq data** with **medical images** (in `.nii.gz` format). The approach leverages contrastive learning to ensure that matching RNA and image embeddings are pulled closer together while non-matching pairs are pushed apart. Then the embeddings are used for downstream task. For example classification of benign or malignant lesions.
+This repository contains code for training a **contrastive** that aligns **RNA-Seq data** with **medical images** (in `.nii.gz` format). The approach leverages contrastive learning to ensure that matching RNA and image embeddings are pulled closer together while non-matching pairs are pushed apart. Then the embeddings are used for downstream task. For example classification of benign or malignant lesions.
+
+# Example of contrastive model
 
 ![Short description of the figure](https://raw.githubusercontent.com/KristoferLintonReid/ultrasound-contrastivemodels/klr/dev/figures/Slide2.jpg)
 
